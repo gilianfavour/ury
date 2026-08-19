@@ -90,6 +90,10 @@ website_route_rules = [
 # before_install = "ury.install.before_install"
 # after_install = "ury.install.after_install"
 
+# Re-apply URY role permissions on standard doctypes after every migrate,
+# since doctype sync recreates DocPerm rows from each doctype's JSON.
+after_migrate = "ury.permissions.after_migrate"
+
 # Uninstallation
 # ------------
 
