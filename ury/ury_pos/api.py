@@ -688,6 +688,40 @@ def getCashier(room):
     return cashier       
     
 
+def get_profile_for_user(branch_name):
+    """Resolve the POS Profile for a branch, preferring one the current user
+    is permitted to bill against (role_allowed_for_billing)."""
+    user_roles = set(frappe.get_roles())
+
+    branch_profiles = frappe.get_all(
+        "POS Profile",
+        filters={"branch": branch_name},
+        order_by="creation asc",
+    )
+
+    if not branch_profiles:
+        frappe.throw(_("No POS Profile found for branch {0}").format(branch_name))
+
+    enabled_profiles = frappe.get_all(
+        "POS Profile",
+        filters={"branch": branch_name, "disabled": 0},
+        order_by="creation asc",
+    )
+
+    for profile in enabled_profiles:
+        allowed_roles = {
+            role.role
+            for role in frappe.get_doc("POS Profile", profile.name).role_allowed_for_billing
+        }
+        if allowed_roles & user_roles:
+            return profile.name
+
+    if enabled_profiles:
+        return enabled_profiles[0].name
+
+    frappe.throw(_("No active POS Profile found for branch {0}").format(branch_name))
+
+
 @frappe.whitelist()
 def getPosProfile():
     branchName = getBranch()
@@ -697,7 +731,7 @@ def getPosProfile():
     printer = None
     cashier = None
     owner = None
-    posProfile = frappe.db.exists("POS Profile", {"branch": branchName})
+    posProfile = get_profile_for_user(branchName)
     pos_profiles = frappe.get_doc("POS Profile", posProfile)
     global_defaults = frappe.get_single('Global Defaults')
     disable_rounded_total = global_defaults.disable_rounded_total
